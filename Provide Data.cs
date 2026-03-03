@@ -53,7 +53,7 @@ namespace Filtering_Rainfall_Asc
 
         private void Close_Click(object sender, EventArgs e)
         {
-
+            this.FindForm()?.Close();
         }
 
         private void ASCFILES_SelectedIndexChanged(object sender, EventArgs e)
@@ -62,6 +62,11 @@ namespace Filtering_Rainfall_Asc
         }
 
         private void PolygonFIle_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e)
         {
 
         }

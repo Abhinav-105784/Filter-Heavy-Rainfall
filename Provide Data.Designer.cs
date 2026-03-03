@@ -35,11 +35,14 @@
             this.Close = new System.Windows.Forms.Button();
             this.ASCFILES = new System.Windows.Forms.ListBox();
             this.label2 = new System.Windows.Forms.Label();
+            this.label1 = new System.Windows.Forms.Label();
+            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.label4 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // PolygonFIle
             // 
-            this.PolygonFIle.Location = new System.Drawing.Point(23, 320);
+            this.PolygonFIle.Location = new System.Drawing.Point(23, 386);
             this.PolygonFIle.Name = "PolygonFIle";
             this.PolygonFIle.Size = new System.Drawing.Size(306, 20);
             this.PolygonFIle.TabIndex = 1;
@@ -47,7 +50,7 @@
             // 
             // BrowsePolygon
             // 
-            this.BrowsePolygon.Location = new System.Drawing.Point(131, 346);
+            this.BrowsePolygon.Location = new System.Drawing.Point(131, 412);
             this.BrowsePolygon.Name = "BrowsePolygon";
             this.BrowsePolygon.Size = new System.Drawing.Size(75, 23);
             this.BrowsePolygon.TabIndex = 2;
@@ -67,7 +70,7 @@
             // 
             // Run
             // 
-            this.Run.Location = new System.Drawing.Point(33, 379);
+            this.Run.Location = new System.Drawing.Point(33, 446);
             this.Run.Name = "Run";
             this.Run.Size = new System.Drawing.Size(75, 23);
             this.Run.TabIndex = 4;
@@ -77,7 +80,7 @@
             // 
             // Close
             // 
-            this.Close.Location = new System.Drawing.Point(231, 379);
+            this.Close.Location = new System.Drawing.Point(232, 446);
             this.Close.Name = "Close";
             this.Close.Size = new System.Drawing.Size(75, 23);
             this.Close.TabIndex = 5;
@@ -99,17 +102,46 @@
             this.label2.AutoSize = true;
             this.label2.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.label2.ForeColor = System.Drawing.SystemColors.GrayText;
-            this.label2.Location = new System.Drawing.Point(30, 416);
+            this.label2.Location = new System.Drawing.Point(30, 493);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(267, 13);
             this.label2.TabIndex = 31;
             this.label2.Text = "For any issues Contact abhinav.goswami@arcadis.com";
             // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(20, 370);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(64, 13);
+            this.label1.TabIndex = 32;
+            this.label1.Text = "Polygon File";
+            this.label1.Click += new System.EventHandler(this.label1_Click);
+            // 
+            // textBox1
+            // 
+            this.textBox1.Location = new System.Drawing.Point(166, 329);
+            this.textBox1.Name = "textBox1";
+            this.textBox1.Size = new System.Drawing.Size(40, 20);
+            this.textBox1.TabIndex = 33;
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(31, 332);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(129, 13);
+            this.label4.TabIndex = 35;
+            this.label4.Text = "Number of Data Needed :";
+            // 
             // Provide_Data
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(369, 438);
+            this.ClientSize = new System.Drawing.Size(369, 515);
+            this.Controls.Add(this.label4);
+            this.Controls.Add(this.textBox1);
+            this.Controls.Add(this.label1);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.ASCFILES);
             this.Controls.Add(this.Close);
@@ -133,5 +165,8 @@
         private System.Windows.Forms.Button Close;
         private System.Windows.Forms.ListBox ASCFILES;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.TextBox textBox1;
+        private System.Windows.Forms.Label label4;
     }
 }
