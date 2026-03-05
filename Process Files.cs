@@ -32,16 +32,14 @@ namespace Filtering_Rainfall_Asc
                 Console.WriteLine($"GDAL initialization Failed : {ex.Message}");
                 return;
             }
-            string radolanWktTest = RADOLAN_PRJ;
-            var testSrs = new SpatialReference("");
-            testSrs.ImportFromWkt(ref radolanWktTest);
-            Console.WriteLine($"GDAL interprets axes as: {testSrs.GetAxisName(null, 0)}, {testSrs.GetAxisName(null, 1)}");
 
-            // ── Build a clean RADOLAN WKT from PROJ4 that GDAL understands ─────
             var radolanSrs = new SpatialReference("");
             radolanSrs.ImportFromProj4(RADOLAN_PROJ4);
             radolanSrs.ExportToWkt(out string radolanWkt, null);
+            radolanWkt = radolanWkt.Replace("AXIS[\"Easting\",SOUTH]", "AXIS[\"Easting\",EAST]").Replace("AXIS[\"Northing\",SOUTH]", "AXIS[\"Northing\",NORTH]");
             Console.WriteLine($"RADOLAN WKT from PROJ4: {radolanWkt}");
+
+
             string sourceSrs = null;
             //Geometry cutLine = null;
             SpatialReference spatialReference = null;
@@ -55,25 +53,26 @@ namespace Filtering_Rainfall_Asc
                     return;
                 }
 
-                var layerCount = shpDs.GetLayerByIndex(0);
-                var srs = layerCount.GetSpatialRef();
+                var layer = shpDs.GetLayerByIndex(0);
+                var srs = layer.GetSpatialRef();
                 //spatialReference = srs;
                 Console.WriteLine(srs.GetName() + "\n");
                 if (srs == null || srs.IsProjected() == 0 && srs.IsGeographic() == 0)
                 {
                     Console.WriteLine("No SRS/PRJ found in Shapefile!");
                     MessageBox.Show("Either SRS or Proj file missing with Shapefile");
+                    shpDs.Dispose();
+                    return;
                 }
-                else
-                {
-                    string wkt;
-                    srs.ExportToWkt(out wkt, null);
-                    sourceSrs = wkt;
-                    Console.WriteLine("Shapefile CRS: " + wkt);
-                    spatialReference = srs;
-                }
+
+                string wkt;
+                srs.ExportToWkt(out wkt, null);
+                sourceSrs = wkt;
+                Console.WriteLine("Shapefile CRS: " + wkt +"\n");
+                spatialReference = srs;
                 shpDs.Dispose();
-                if (layerCount == null)
+
+                if (layer == null)
                 {
                     MessageBox.Show("There are no layers in the Shapefile");
                     return;
@@ -83,6 +82,7 @@ namespace Filtering_Rainfall_Asc
             catch (Exception ex)
             {
                 MessageBox.Show($"Error while Processing Shapefile: {ex.Message}");
+                Console.WriteLine($"Error while Processing Shapefile: {ex.Message}");
                 return;
             }
 
@@ -94,109 +94,78 @@ namespace Filtering_Rainfall_Asc
                     continue;
                 }
 
-                string outputPath = Path.ChangeExtension(ascPath, null) + "_clipped.tif";
+                string tempPath = Path.ChangeExtension(ascPath, null) + "_TEMP.tif";
                 try
                 {
                     var srcDsReadOnly = Gdal.Open(ascPath, Access.GA_ReadOnly);
                     if (srcDsReadOnly == null)
                     {
-                        Console.WriteLine($"ASC file not opening: {ascPath}");
+                        Console.WriteLine($"ASC file not opening: {ascPath} \n");
                         continue;
                     }
 
                     var memDriver = Gdal.GetDriverByName("MEM");
-                    Dataset srcDs = memDriver.CreateCopy("", srcDsReadOnly, 0, null, null, null);
+                    Dataset memDs = memDriver.CreateCopy("", srcDsReadOnly, 0, null, null, null);
                     srcDsReadOnly.Dispose();
 
-                    if (srcDs == null)
+                    if (memDs == null)
                     {
                         Console.WriteLine($"Failed to copy the MEM dataset: {ascPath}");
                         continue;
                     }
-                    //string currentSRS = srcDs.GetProjectionRef();
-                    //Console.WriteLine($"ASC File Projection : {currentSRS}");
-                    //srcDs.SetSpatialRef(spatialReference);
-                    //srcDs.SetProjection(sourceSrs);
-                    //string currentSRS1 = srcDs.GetProjection();
-                    //Console.WriteLine($"ASC File Projection : {currentSRS1}");
-                    Console.WriteLine($"Processing: {Path.GetFileName(ascPath)} -> {Path.GetFileName(outputPath)}");
 
-                    //CPLErr projResult = srcDs.SetProjection(RADOLAN_PRJ);
-                    //if (projResult != CPLErr.CE_None)
-                    //    Console.WriteLine($"WARNING: SetProjection failed: {Gdal.GetLastErrorMsg()}");
-                    //else
-                    //    Console.WriteLine("RADOLAN projection set successfully.");
-                    //Console.WriteLine("RADOLAN projection set");
-                    //string currentSRS1 = srcDs.GetProjection();
-                    //Console.WriteLine($"ASC File Projection : {currentSRS1}");
+                    Console.WriteLine($"Processing: {Path.GetFileName(ascPath)} -> {Path.GetFileName(tempPath)}");
 
-                    CPLErr projResult = srcDs.SetProjection(radolanWkt);
+                    CPLErr projResult = memDs.SetProjection(radolanWkt);
                     if (projResult != CPLErr.CE_None)
-                        Console.WriteLine($"WARNING: SetProjection failed: {Gdal.GetLastErrorMsg()}");
+                        Console.WriteLine($"WARNING: SetProjection failed: {Gdal.GetLastErrorMsg()} \n");
                     else
-                        Console.WriteLine("RADOLAN projection set successfully.");
+                        Console.WriteLine("RADOLAN projection set successfully. \n");
 
-                    Console.WriteLine($"Projection on dataset: {srcDs.GetProjection()}");
-
-                    double[] geoTransform = new double[6];
-                    srcDs.GetGeoTransform(geoTransform);
-                    Console.WriteLine(string.Join(",", geoTransform));
-
-                    string tempPath = Path.ChangeExtension(ascPath, null) + "_TEMP.tif";
+                    Console.WriteLine($"Projection on dataset: {memDs.GetProjection()} \n");
 
                     var gtiffDriver = Gdal.GetDriverByName("GTiff");
 
-                    Dataset tempDs = gtiffDriver.CreateCopy(tempPath, srcDs, 0, null, null, null);
+                    Dataset tempDs = gtiffDriver.CreateCopy(tempPath, memDs, 0, null, null, null);
 
-                    tempDs.SetProjection(RADOLAN_PRJ);
+                    memDs.Dispose();
+
+                    if (tempDs == null) 
+                    {
+                        Console.WriteLine($"Failed to create TEMP.tif : {tempPath}");
+                        continue;
+                    }
+
                     tempDs.FlushCache();
                     tempDs.Dispose();
-                    srcDs.Dispose();
+
+                    Console.WriteLine($"TEMP.tif created: {tempPath}");
 
                     Dataset warpSrc = Gdal.Open(tempPath, Access.GA_ReadOnly);
+
                     Console.WriteLine($"Temp File projection : {warpSrc.GetProjection()}");
+
+                    //double[] gt = new double[6];
+                    //warpSrc.GetGeoTransform(gt);
+                    //Console.WriteLine($"GeoTransform: {string.Join(", ", gt)}");
+
+                    //double det = gt[1] * gt[5] - gt[2] * gt[4];
+                    //Console.WriteLine($"GeoTransform determinant: {det}\n");
+
                     if (IsRecentRADOLAN(ascPath))
                     {
-                        var divideDS = DivideRasterBy10(srcDs);
-                        srcDs.Dispose();
-                        srcDs = divideDS;
-                        Console.WriteLine("Values divided by 10 (recent data)");
+                        var divideDS = DivideRasterBy10(warpSrc);
+                        warpSrc.Dispose();
+                        warpSrc = divideDS;
+                        Console.WriteLine("Values divided by 10 (recent data)\n");
                     }
                     else
                     {
-                        Console.WriteLine("Unable to process ASCII to raster properly");
+                        Console.WriteLine("Unable to process ASCII to raster properly\n");
                     }
 
-                    Console.WriteLine($"RasterX: {srcDs.RasterXSize}, RasterY: {srcDs.RasterYSize}, Bands: {srcDs.RasterCount}");
-                    Console.WriteLine($"Projection: {srcDs.GetProjection()}");
-
-                    //var testSrs = new SpatialReference("");
-                    //string RADOLAN_PRJ_var = RADOLAN_PRJ;
-                    //testSrs.ImportFromWkt(ref RADOLAN_PRJ_var); // your official WKT
-                    //Console.WriteLine($"GDAL interprets axes as: {testSrs.GetAxisName(null, 0)}, {testSrs.GetAxisName(null, 1)}");
-
-                    double[] gt = new double[6];
-                    srcDs.GetGeoTransform(gt);
-                    Console.WriteLine($"GeoTransform: {string.Join(", ", gt)}");
-
-                    double det = gt[1] * gt[5] - gt[2] * gt[4];
-                    Console.WriteLine($"GeoTransform determinant: {det}");
-
-                    //Gdal.SetConfigOption("CPL_DEBUG", "ON");
-                    //Gdal.SetConfigOption("GDAL_DATA", "ON");
-
-                    //string[] warpOptionsArray = new string[]
-                    //{
-                    //    "-of","GTiff",
-                    //    "-r","near",
-                    //    "-cutline", file,
-                    //   // "-cutline_srs", sourceSrs,
-                    //    "-crop_to_cutline",
-                    //    //"-s_srs",RADOLAN_PRJ,
-                    //     "-co","TILED=YES"
-                    //};
-
-
+                    Console.WriteLine($"RasterX: {warpSrc.RasterXSize}, RasterY: {warpSrc.RasterYSize}, Bands: {warpSrc.RasterCount}\n");
+                    Console.WriteLine($"Projection: {warpSrc.GetProjection()}\n");
 
                     // Use the same WKT in warp options
                     string[] warpOptionsArray = new string[]
@@ -206,7 +175,7 @@ namespace Filtering_Rainfall_Asc
                        "-cutline", file,
                        "-cutline_srs", sourceSrs,   // tell GDAL cutline is in UTM32N
                        "-crop_to_cutline",
-                      // "-s_srs", radolanWkt,        // explicitly pass the clean WKT
+                       "-s_srs", radolanWkt,        // explicitly pass the clean WKT
                        "-co", "TILED=YES"
                     };
                     Console.WriteLine("Warp options: " + string.Join(" ", warpOptionsArray) + "\n");
@@ -223,7 +192,7 @@ namespace Filtering_Rainfall_Asc
                     Dataset clippedDS = null;
                     try
                     {
-                        clippedDS = Gdal.Warp(outputPath, new[] { warpSrc }, warpOpts, null, null);
+                        clippedDS = Gdal.Warp(tempPath, new[] { warpSrc }, warpOpts, null, null);
                         warpSrc.Dispose();
                     }
                     catch (Exception ex)
@@ -234,22 +203,22 @@ namespace Filtering_Rainfall_Asc
 
                     if (clippedDS != null)
                     {
-                        Console.WriteLine($"Clip successful ->{outputPath}");
+                        Console.WriteLine($"Clip successful ->{tempPath}");
                         clippedDS.Dispose();
                     }
                     else
                     {
-                        Console.WriteLine($"Warp failed! Error: {Gdal.GetLastErrorMsg()}");
-                        Console.WriteLine($"GDAL Last Error: {Gdal.GetLastErrorMsg()}");
-                        Console.WriteLine($"GDAL Last Error No: {Gdal.GetLastErrorNo()}");
+                        Console.WriteLine($"Warp failed! Error: {Gdal.GetLastErrorMsg()}  \n");
+                        Console.WriteLine($"GDAL Last Error: {Gdal.GetLastErrorMsg()}  \n");
+                        Console.WriteLine($"GDAL Last Error No: {Gdal.GetLastErrorNo()}  \n");
                     }
-                    if(File.Exists(tempPath)) File.Delete(tempPath);
+                    //if(File.Exists(tempPath)) File.Delete(tempPath);
 
                     //File.Delete(tempWktFile);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error in {ascPath} : {ex.Message}");
+                    Console.WriteLine($"Error in {ascPath} : {ex.Message} \n");
                     return;
                 }
             }
@@ -287,7 +256,7 @@ namespace Filtering_Rainfall_Asc
 
                 if (readResult != CPLErr.CE_None)
                 {
-                    Console.WriteLine($"Read Error onb band {i}: {Gdal.GetLastErrorMsg()}");
+                    Console.WriteLine($"Read Error onb band {i}: {Gdal.GetLastErrorMsg()} \n");
                     continue;
                 }
 
@@ -302,7 +271,7 @@ namespace Filtering_Rainfall_Asc
                 CPLErr writeResult = dstBand.WriteRaster(0, 0, width, height, buffer, width, height, 0, 0);
                 if (writeResult != CPLErr.CE_None)
                 {
-                    Console.WriteLine($"Write Error on band : {i} : {Gdal.GetLastErrorMsg()}");
+                    Console.WriteLine($"Write Error on band : {i} : {Gdal.GetLastErrorMsg()} \n");
                 }
             }
             return newDs;
