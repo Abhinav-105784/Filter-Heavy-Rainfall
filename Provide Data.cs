@@ -15,6 +15,7 @@ namespace Filtering_Rainfall_Asc
         public Provide_Data()
         {
             InitializeComponent();
+            textBox1.Text = "3";
         }
 
         private void BrowseASCFILES_Click(object sender, EventArgs e)
@@ -27,7 +28,10 @@ namespace Filtering_Rainfall_Asc
 
                 if (file.ShowDialog() == DialogResult.OK)
                 {
-                    ASCFILES.Items.Add(file.FileNames);
+                    foreach (string s in file.FileNames) 
+                    {
+                        ASCFILES.Items.Add(s);
+                    }
                 }
             }
         }
@@ -48,7 +52,18 @@ namespace Filtering_Rainfall_Asc
 
         private void Run_Click(object sender, EventArgs e)
         {
-
+            if(!int.TryParse(textBox1.Text, out int number))
+            {
+                MessageBox.Show("Please give a valid number for filtering observations");
+                return;
+            }
+            List<string> list = new List<string>();
+              foreach(var item in ASCFILES.Items)
+            {
+                list.Add(item.ToString());
+            }
+            Process_Files.Process(list, PolygonFIle.Text, int.Parse(textBox1.Text));
+            Close();
         }
 
         private void Close_Click(object sender, EventArgs e)
@@ -69,6 +84,11 @@ namespace Filtering_Rainfall_Asc
         private void label1_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+            
         }
     }
 }
