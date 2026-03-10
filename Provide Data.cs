@@ -57,6 +57,18 @@ namespace Filtering_Rainfall_Asc
                 MessageBox.Show("Please give a valid number for filtering observations");
                 return;
             }
+
+            if(PolygonFIle.Text == string.Empty)
+            {
+                MessageBox.Show("Please provide a valid Polygon shape file");
+                return;
+            }
+
+            if(ASCFILES.Items.Count == 0)
+            {
+                MessageBox.Show("Please provide some raster files to begin");
+                return;
+            }
             List<string> list = new List<string>();
               foreach(var item in ASCFILES.Items)
             {

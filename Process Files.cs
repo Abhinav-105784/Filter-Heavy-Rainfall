@@ -13,8 +13,15 @@ namespace Filtering_Rainfall_Asc
     {
         public Process_Files() { }
 
+        /// <summary>
+        /// Writing new files after warping and deleting uneccessary files
+        /// </summary>
+        /// <param name="TifFiles"></param>
+        /// <param name="Polygonfile"></param>
+        /// <param name="number"></param>
         public static void Process(List<string> TifFiles, string Polygonfile, int number)
         {
+            //Checking if inputs are correct
             if (TifFiles.Count == 0 || TifFiles == null)
             {
                 MessageBox.Show("Tif files list is empty or null");
@@ -49,6 +56,7 @@ namespace Filtering_Rainfall_Asc
 
             int success = 0, skipped = 0, failed = 0;
 
+            // processing each tif file for warping and computing rainfall values
             foreach (var tifFile in TifFiles)
             {
                 if (!File.Exists(tifFile))
@@ -127,6 +135,7 @@ namespace Filtering_Rainfall_Asc
                 outputFolder = Directory.GetCurrentDirectory(); 
             }
 
+            // Writing csv for files that have required data
             string csvFileName = $"Top_{number}_Rainfall_Averages_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
             string csvPath = Path.Combine(outputFolder, csvFileName);
 
@@ -154,11 +163,13 @@ namespace Filtering_Rainfall_Asc
                 Console.ResetColor();
             }
 
+            //Garbage collection
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
             System.Threading.Thread.Sleep(100);
 
+            //Deletion of unwanted files
             HashSet<string> filesToKeep = new HashSet<string>(outValues.Keys, StringComparer.OrdinalIgnoreCase);
             foreach (string file in tifList)
             {
@@ -178,6 +189,12 @@ namespace Filtering_Rainfall_Asc
             }
         }
 
+        /// <summary>
+        /// Simple Warping on the Raster file Individually using polygon shapefile
+        /// </summary>
+        /// <param name="inputTif"></param>
+        /// <param name="outputTif"></param>
+        /// <param name="polygonFile"></param>
         private static void WarpingCutline(string inputTif, string outputTif, string polygonFile)
         {
 
@@ -247,10 +264,17 @@ namespace Filtering_Rainfall_Asc
             }
         }
 
+        /// <summary>
+        /// Computing the rainfall value from here for each warped raster
+        /// </summary>
+        /// <param name="clippedTif"></param>
+        /// <returns></returns>
         public static double ComputeAverageRainfall(string clippedTif)
         {
             clippedTif = Path.GetFullPath(clippedTif);
             double average = 0;
+            double max = 0;
+            int cellNo = 0;
 
             using (var ds = Gdal.Open(clippedTif, Access.GA_ReadOnly))
             {
@@ -280,6 +304,12 @@ namespace Filtering_Rainfall_Asc
                             continue;
 
                         sum += value;
+                        if(value>max)
+                        {
+                            max = value;
+                            cellNo++;
+                        }
+                        
                         count++;
                     }
 
@@ -293,6 +323,8 @@ namespace Filtering_Rainfall_Asc
                     Console.WriteLine($"Total Cells : {count}\n");
                     Console.WriteLine($"Sum         : {sum:F4}\n");
                     Console.WriteLine($"Average     : {average:F4}\n");
+                    Console.WriteLine($"Maximum Rain: {max:F4}\n");
+                    Console.WriteLine($"At Cell     : {cellNo}\n");
                 }
 
                 ds.FlushCache();
