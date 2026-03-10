@@ -82,8 +82,34 @@ namespace Filtering_Rainfall_Asc
                     failed++;
                 }
             }
-            
-            Console.WriteLine($"\n=== Summary ===");
+
+            if (allValues.Count > 0 && allValues.Count>=number)
+            {
+                var pairs = new List<(string file, double average)>();
+                for (int i = 0; i < allValues.Count; i++)
+                {
+                    pairs.Add((tifList[i], allValues[i]));
+                }
+
+                pairs.Sort((a, b) => b.average.CompareTo(a.average));
+
+                for(int i=0; i < number; i++)
+                {
+                    string fileName = Path.GetFileName(pairs[i].file);
+                    outValues[fileName] = pairs[i].average;
+                }
+            }
+            else if( number > allValues.Count || number ==0)
+            {
+                Console.WriteLine($"Give proper value for the numbers to gathered");
+            }
+            else
+            {
+                Console.WriteLine("No successful TIFFs to rank.");
+            }
+
+
+                Console.WriteLine($"\n=== Summary ===");
             Console.WriteLine($"  Success : {success}\n");
             Console.WriteLine($"  Skipped : {skipped}\n");
             Console.WriteLine($"  Failed  : {failed}\n");
