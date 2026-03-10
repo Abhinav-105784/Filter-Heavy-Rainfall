@@ -23,7 +23,7 @@ namespace Filtering_Rainfall_Asc
             using (OpenFileDialog file = new OpenFileDialog())
             {
                 file.Filter = "Raster Files(*.tif) | *.tif";
-                file.Title = "Select the ASC Data File";
+                file.Title = "Select the Raster Data Files";
                 file.Multiselect = true;
 
                 if (file.ShowDialog() == DialogResult.OK)

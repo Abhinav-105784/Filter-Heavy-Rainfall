@@ -45,6 +45,7 @@ namespace Filtering_Rainfall_Asc
             SortedDictionary<string, double> outValues = new SortedDictionary<string, double>();
             List<double> allValues = new List<double>();
             List<string> tifList = new List<string>();
+           
 
             int success = 0, skipped = 0, failed = 0;
 
@@ -101,19 +102,80 @@ namespace Filtering_Rainfall_Asc
             }
             else if( number > allValues.Count || number ==0)
             {
-                Console.WriteLine($"Give proper value for the numbers to gathered");
+                Console.WriteLine("Give proper value for the numbers to gathered\n");
             }
             else
             {
-                Console.WriteLine("No successful TIFFs to rank.");
+                Console.WriteLine("No successful TIFFs to rank.\n");
             }
-
-
-                Console.WriteLine($"\n=== Summary ===");
+           
+                Console.WriteLine($"\n=== Summary ===\n");
             Console.WriteLine($"  Success : {success}\n");
             Console.WriteLine($"  Skipped : {skipped}\n");
             Console.WriteLine($"  Failed  : {failed}\n");
 
+            Console.WriteLine($"All top {number} files and values\n");
+            
+            foreach (var kvp in outValues)
+            {
+                Console.WriteLine($"{kvp.Key} -- {kvp.Value}");
+            }
+
+            string outputFolder = Path.GetDirectoryName(tifList.FirstOrDefault() ?? TifFiles.FirstOrDefault());
+            if (string.IsNullOrEmpty(outputFolder))
+            {
+                outputFolder = Directory.GetCurrentDirectory(); 
+            }
+
+            string csvFileName = $"Top_{number}_Rainfall_Averages_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            string csvPath = Path.Combine(outputFolder, csvFileName);
+
+            try
+            {
+                using (var writer = new StreamWriter(csvPath))
+                {
+                    writer.WriteLine("Filename,Average_Rainfall");
+
+                    foreach (var kvp in outValues)
+                    {
+                        writer.WriteLine($"\"{kvp.Key}\",{kvp.Value:F4}");
+                    }
+                }
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"\nCSV file created successfully:");
+                Console.WriteLine($"→ {csvPath}");
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"\nError while creating CSV: {ex.Message}");
+                Console.ResetColor();
+            }
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            System.Threading.Thread.Sleep(100);
+
+            HashSet<string> filesToKeep = new HashSet<string>(outValues.Keys, StringComparer.OrdinalIgnoreCase);
+            foreach (string file in tifList)
+            {
+                string fileName = Path.GetFileName(file);
+                if (!filesToKeep.Contains(fileName))
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        Console.WriteLine($"Deleted {fileName} as it wasn't matching the required criteria");
+                    }
+                    catch (IOException ex)
+                    {
+                        Console.WriteLine($"Could not delete {fileName}: {ex.Message}");
+                    }
+                }
+            }
         }
 
         private static void WarpingCutline(string inputTif, string outputTif, string polygonFile)
@@ -123,109 +185,118 @@ namespace Filtering_Rainfall_Asc
             outputTif = Path.GetFullPath(outputTif);
             polygonFile = Path.GetFullPath(polygonFile);
 
-            var srcDs = Gdal.Open(inputTif, Access.GA_ReadOnly);
-
-            if (srcDs == null)
+            using (var srcDs = Gdal.Open(inputTif, Access.GA_ReadOnly))
             {
-                Console.WriteLine($"Could not read/open : {inputTif}");
-                return;
-            }
+                if (srcDs == null)
+                {
+                    Console.WriteLine($"Could not read/open : {inputTif}");
+                    return;
+                }
 
-            string[] warpOptions = new string[]
-            {
+                string[] warpOptions = new string[]
+                {
                 "-crop_to_cutline",
                 "-cutline",polygonFile,
                 "-of","GTiff",
                 "-co","TILED=YES",
                 "-multi"
 
-            };
+                };
 
-            GDALWarpAppOptions warpOpts = null;
+                GDALWarpAppOptions warpOpts = null;
 
-            try
-            {
-                warpOpts = new GDALWarpAppOptions(warpOptions);
+                try
+                {
+                    warpOpts = new GDALWarpAppOptions(warpOptions);
+                }
+                catch (Exception ex)
+                {
+
+                    Console.WriteLine($"Warp options Error for {inputTif} : {ex.Message}\n");
+
+                    return;
+                }
+
+                Dataset clippedDS = null;
+
+                try
+                {
+                    clippedDS = Gdal.Warp(outputTif, new[] { srcDs }, warpOpts, null, null);
+                }
+
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Warping Error for {inputTif} : {ex.Message}\n");
+
+                    return;
+                }
+
+
+                if (clippedDS != null)
+                {
+                    Console.WriteLine($"Clip successful -> {outputTif} \n");
+                }
+
+                else
+                {
+                    Console.WriteLine($"Gdal.Warp returned null for : {inputTif}\n");
+                }
+
+                clippedDS.FlushCache();
+                clippedDS.Dispose();
             }
-            catch (Exception ex)
-            {
-
-                Console.WriteLine($"Warp options Error for {inputTif} : {ex.Message}\n");
-
-                return;
-            }
-
-            Dataset clippedDS = null;
-
-            try
-            {
-                clippedDS = Gdal.Warp(outputTif, new[] { srcDs }, warpOpts, null, null);
-            }
-
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Warping Error for {inputTif} : {ex.Message}\n");
-
-                return;
-            }
-
-            if (clippedDS != null)
-            {
-                Console.WriteLine($"Clip successful -> {outputTif} \n");
-            }
-
-            else
-            {
-                Console.WriteLine($"Gdal.Warp returned null for : {inputTif}\n");
-            }
-
-            clippedDS.FlushCache();
         }
 
         public static double ComputeAverageRainfall(string clippedTif)
         {
             clippedTif = Path.GetFullPath(clippedTif);
+            double average = 0;
 
-            var ds = Gdal.Open(clippedTif, Access.GA_ReadOnly);
-
-            if (ds == null)
+            using (var ds = Gdal.Open(clippedTif, Access.GA_ReadOnly))
             {
-                Console.WriteLine($"Could not open : {clippedTif}\n");
-                return 0;
+
+                if (ds == null)
+                {
+                    Console.WriteLine($"Could not open : {clippedTif}\n");
+                    return 0;
+                }
+
+                using (var band = ds.GetRasterBand(1))
+                {
+                    int width = ds.RasterXSize;
+                    int height = ds.RasterYSize;
+
+                    band.GetNoDataValue(out double noDataVal, out int hasNoData);
+
+                    float[] data = new float[width * height];
+                    band.ReadRaster(0, 0, width, height, data, width, height, 0, 0);
+
+                    double sum = 0;
+                    double count = 0;
+
+                    foreach (var value in data)
+                    {
+                        if (hasNoData == 1 && Math.Abs(value - noDataVal) < 1e-6)
+                            continue;
+
+                        sum += value;
+                        count++;
+                    }
+
+                    if (count == 0)
+                    {
+                        Console.WriteLine($"No valid cells found in : {Path.GetFileName(clippedTif)}");
+                    }
+
+                    average = sum / count;
+
+                    Console.WriteLine($"Total Cells : {count}\n");
+                    Console.WriteLine($"Sum         : {sum:F4}\n");
+                    Console.WriteLine($"Average     : {average:F4}\n");
+                }
+
+                ds.FlushCache();
             }
-
-            var band = ds.GetRasterBand(1);
-
-            int width = ds.RasterXSize;
-            int height = ds.RasterYSize;
-
-            band.GetNoDataValue(out double noDataVal, out int hasNoData);
-
-            float[] data = new float[width * height];
-            band.ReadRaster(0,0, width, height, data,width,height,0,0);
-
-            double sum = 0;
-            double count = 0;
-
-            foreach (var value in data)
-            {
-                if (hasNoData == 1 && Math.Abs(value - noDataVal) < 1e-6)
-                    continue;
-
-                sum += value;
-                count++;
-            }
-
-            if(count==0)
-            {
-                 Console.WriteLine($"No valid cells found in : {Path.GetFileName(clippedTif)}");
-            }
-
-            double average = sum / count;
-
-            Console.WriteLine($"Total Cells : {count}\n");
-            Console.WriteLine($"Sum         : {sum:F4}\n");
-            Console.WriteLine($"Average     : {average:F4}\n");
 
             return average;
         }
