@@ -19,7 +19,7 @@ namespace Filtering_Rainfall_Asc
         /// <param name="TifFiles"></param>
         /// <param name="Polygonfile"></param>
         /// <param name="number"></param>
-        public static void Process(List<string> TifFiles, string Polygonfile, int number)
+        public static void Process(List<string> TifFiles, string Polygonfile, int number, double duration)
         {
             //Checking if inputs are correct
             if (TifFiles.Count == 0 || TifFiles == null)
@@ -48,11 +48,13 @@ namespace Filtering_Rainfall_Asc
                 return;
             }
 
+            int timeSteps = TimeSteps(duration);
             Console.WriteLine($"Processing {TifFiles.Count} Tif Files against Polygon :{Path.GetFileName(Polygonfile)} \n");
             SortedDictionary<string, double> outValues = new SortedDictionary<string, double>();
             List<double> allValues = new List<double>();
             List<string> tifList = new List<string>();
-           
+
+
 
             int success = 0, skipped = 0, failed = 0;
 
@@ -77,7 +79,7 @@ namespace Filtering_Rainfall_Asc
                     Console.WriteLine("OK");
                     Console.ResetColor();
 
-                    double avg = ComputeAverageRainfall(outputPath);
+                    double avg = ComputeMaximumRainfall(outputPath);
                     allValues.Add(avg);
                     tifList.Add(outputPath);
                     success++;
@@ -92,23 +94,23 @@ namespace Filtering_Rainfall_Asc
                 }
             }
 
-            if (allValues.Count > 0 && allValues.Count>=number)
+            if (allValues.Count > 0 && allValues.Count >= number)
             {
-                var pairs = new List<(string file, double average)>();
+                var pairs = new List<(string file, double maximum)>();
                 for (int i = 0; i < allValues.Count; i++)
                 {
                     pairs.Add((tifList[i], allValues[i]));
                 }
 
-                pairs.Sort((a, b) => b.average.CompareTo(a.average));
+                pairs.Sort((a, b) => b.maximum.CompareTo(a.maximum));
 
-                for(int i=0; i < number; i++)
+                for (int i = 0; i < number; i++)
                 {
                     string fileName = Path.GetFileName(pairs[i].file);
-                    outValues[fileName] = pairs[i].average;
+                    outValues[fileName] = pairs[i].maximum;
                 }
             }
-            else if( number > allValues.Count || number ==0)
+            else if (number > allValues.Count || number == 0)
             {
                 Console.WriteLine("Give proper value for the numbers to gathered\n");
             }
@@ -116,14 +118,14 @@ namespace Filtering_Rainfall_Asc
             {
                 Console.WriteLine("No successful TIFFs to rank.\n");
             }
-           
-                Console.WriteLine($"\n=== Summary ===\n");
+
+            Console.WriteLine($"\n=== Summary ===\n");
             Console.WriteLine($"  Success : {success}\n");
             Console.WriteLine($"  Skipped : {skipped}\n");
             Console.WriteLine($"  Failed  : {failed}\n");
 
             Console.WriteLine($"All top {number} files and values\n");
-            
+
             foreach (var kvp in outValues)
             {
                 Console.WriteLine($"{kvp.Key} -- {kvp.Value}");
@@ -132,11 +134,11 @@ namespace Filtering_Rainfall_Asc
             string outputFolder = Path.GetDirectoryName(tifList.FirstOrDefault() ?? TifFiles.FirstOrDefault());
             if (string.IsNullOrEmpty(outputFolder))
             {
-                outputFolder = Directory.GetCurrentDirectory(); 
+                outputFolder = Directory.GetCurrentDirectory();
             }
 
             // Writing csv for files that have required data
-            string csvFileName = $"Top_{number}_Rainfall_Averages_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            string csvFileName = $"Top_{number}_Rainfall_Maximum_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
             string csvPath = Path.Combine(outputFolder, csvFileName);
 
             try
@@ -171,22 +173,74 @@ namespace Filtering_Rainfall_Asc
 
             //Deletion of unwanted files
             HashSet<string> filesToKeep = new HashSet<string>(outValues.Keys, StringComparer.OrdinalIgnoreCase);
+
             foreach (string file in tifList)
             {
                 string fileName = Path.GetFileName(file);
-                if (!filesToKeep.Contains(fileName))
+
+                try
                 {
+                    File.Delete(file);
+                    Console.WriteLine($"Deleted {fileName} as it wasn't matching the required criteria");
+                }
+                catch (IOException ex)
+                {
+                    Console.WriteLine($"Could not delete {fileName}: {ex.Message}");
+                }
+
+            }
+
+            Console.WriteLine($"Collecting the rainfall events.\n");
+            // Getting full rainfall event for max value file
+            List<List<string>> allOutPutFiles = new List<List<string>>();
+            foreach (string file in filesToKeep)
+            {
+                List<string> current = FilesList(file, timeSteps, TifFiles);
+                allOutPutFiles.Add(current);
+            }
+
+            Console.WriteLine("Processing each rainfall event");
+
+            // warping all files
+            foreach (List<string> list in allOutPutFiles)
+            {
+                List<string> warpedFiles = new List<string>();
+                string centerFile = Path.GetFileNameWithoutExtension(list[list.Count / 2]);
+
+                string baseDir = Path.GetDirectoryName(list[0]);
+                string eventFolder = Path.Combine(baseDir, centerFile);
+                Directory.CreateDirectory(eventFolder);
+                foreach (string file in list)
+                {
+                    string outputPath = Path.Combine(eventFolder, Path.GetFileNameWithoutExtension(file) + "_clipped.tif");
+                    Console.WriteLine($"Warping : {Path.GetFileNameWithoutExtension(file)} -> {Path.GetFileNameWithoutExtension(outputPath)}");
                     try
                     {
-                        File.Delete(file);
-                        Console.WriteLine($"Deleted {fileName} as it wasn't matching the required criteria");
+                        WarpingCutline(file, outputPath, Polygonfile);
+                        warpedFiles.Add(outputPath);
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("OK");
+                        Console.ResetColor();
                     }
-                    catch (IOException ex)
+                    catch (Exception ex)
                     {
-                        Console.WriteLine($"Could not delete {fileName}: {ex.Message}");
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"\nError while creating CSV: {ex.Message}\n");
+                        Console.ResetColor();
                     }
                 }
+
+                //CSV for the rainfall event
+                if (warpedFiles.Count > 0) 
+                {
+                    string folder = Path.GetDirectoryName(warpedFiles[0]);
+                    string csvFile = Path.Combine(folder, "Rainfall_Event.csv");
+
+                    ReadingRaster.WriteRainfallMatrix(warpedFiles, csvFile);
+
+                }
             }
+
         }
 
         /// <summary>
@@ -269,7 +323,7 @@ namespace Filtering_Rainfall_Asc
         /// </summary>
         /// <param name="clippedTif"></param>
         /// <returns></returns>
-        public static double ComputeAverageRainfall(string clippedTif)
+        public static double ComputeMaximumRainfall(string clippedTif)
         {
             clippedTif = Path.GetFullPath(clippedTif);
             double average = 0;
@@ -304,12 +358,12 @@ namespace Filtering_Rainfall_Asc
                             continue;
 
                         sum += value;
-                        if(value>max)
+                        if (value > max)
                         {
                             max = value;
                             cellNo++;
                         }
-                        
+
                         count++;
                     }
 
@@ -330,7 +384,73 @@ namespace Filtering_Rainfall_Asc
                 ds.FlushCache();
             }
 
-            return average;
+            return max;
+        }
+
+        public static int TimeSteps(double duration)
+        {
+            return (int)(duration * 60) / 5;
+        }
+
+        /// <summary>
+        /// Putting the maximum rain value event in center and getting rainfall total files to extract data for defined duration by user
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="timeStep"></param>
+        /// <param name="files"></param>
+        /// <returns></returns>
+        public static List<string> FilesList(string fileName, int timeStep, List<string> files)
+        {
+            List<string> rainEvent = new List<string>();
+
+            string[] parts = fileName.Split('_');
+
+            string prefix = parts[0] + "_" + parts[1] + "_";
+            string datePart = parts[2];
+            string timePart = parts[3];
+
+            DateTime center = DateTime.ParseExact(
+                datePart + timePart,
+                "yyyyMMddHHmm",
+                null
+            );
+
+            int left = timeStep / 2;
+            int right = timeStep / 2;
+
+            if (timeStep % 2 == 0)
+            {
+                right = left - 1;
+            }
+
+            //event previous to current timestep
+            for (int i = left; i > 0; i--)
+            {
+                DateTime t = center.AddMinutes(-5 * i);
+                string newFile = prefix + t.ToString("yyyyMMdd") + "_" + t.ToString("HHmm");
+
+                if (files.Contains(newFile))
+                    rainEvent.Add(newFile);
+                else
+                    Console.WriteLine($"Skipped : {newFile} (File not found)");
+            }
+
+            rainEvent.Add(fileName);
+
+            //event after the current timeStep
+
+            for (int i = 1; i <= right; i++)
+            {
+                DateTime t = center.AddMinutes(5 * i);
+                string newFile = prefix + t.ToString("yyyyMMdd") + "_" + t.ToString("HHmm");
+
+                if (files.Contains(newFile))
+                    rainEvent.Add(newFile);
+                else
+                    Console.WriteLine($"Skipped : {newFile} (File not found)");
+            }
+
+            return rainEvent;
         }
     }
 }

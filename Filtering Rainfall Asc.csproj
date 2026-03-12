@@ -69,6 +69,7 @@
     <Compile Include="Provide Data.Designer.cs">
       <DependentUpon>Provide Data.cs</DependentUpon>
     </Compile>
+    <Compile Include="ReadingRaster.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -52,12 +52,16 @@ namespace Filtering_Rainfall_Asc
 
         private void Run_Click(object sender, EventArgs e)
         {
-            if(!int.TryParse(textBox1.Text, out int number))
+            if(!int.TryParse(textBox1.Text, out int number) || int.Parse(textBox1.Text) > ASCFILES.Items.Count)
             {
                 MessageBox.Show("Please give a valid number for filtering observations");
                 return;
             }
-
+            if (!double.TryParse(Duration.Text, out double durationTime))
+            {
+                MessageBox.Show("Please give a valid duration for filtering observations in hours");
+                return;
+            }
             if(PolygonFIle.Text == string.Empty)
             {
                 MessageBox.Show("Please provide a valid Polygon shape file");
@@ -74,7 +78,7 @@ namespace Filtering_Rainfall_Asc
             {
                 list.Add(item.ToString());
             }
-            Process_Files.Process(list, PolygonFIle.Text, int.Parse(textBox1.Text));
+            Process_Files.Process(list, PolygonFIle.Text, int.Parse(textBox1.Text), double.Parse(Duration.Text));
             Close();
         }
 
@@ -101,6 +105,11 @@ namespace Filtering_Rainfall_Asc
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
             
+        }
+
+        private void Duration_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
