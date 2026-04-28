@@ -45,7 +45,7 @@
             // PolygonFIle
             // 
             this.PolygonFIle.Location = new System.Drawing.Point(31, 475);
-            this.PolygonFIle.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.PolygonFIle.Margin = new System.Windows.Forms.Padding(4);
             this.PolygonFIle.Name = "PolygonFIle";
             this.PolygonFIle.Size = new System.Drawing.Size(407, 22);
             this.PolygonFIle.TabIndex = 1;
@@ -54,7 +54,7 @@
             // BrowsePolygon
             // 
             this.BrowsePolygon.Location = new System.Drawing.Point(175, 507);
-            this.BrowsePolygon.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.BrowsePolygon.Margin = new System.Windows.Forms.Padding(4);
             this.BrowsePolygon.Name = "BrowsePolygon";
             this.BrowsePolygon.Size = new System.Drawing.Size(100, 28);
             this.BrowsePolygon.TabIndex = 2;
@@ -65,7 +65,7 @@
             // BrowseASCFILES
             // 
             this.BrowseASCFILES.Location = new System.Drawing.Point(175, 347);
-            this.BrowseASCFILES.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.BrowseASCFILES.Margin = new System.Windows.Forms.Padding(4);
             this.BrowseASCFILES.Name = "BrowseASCFILES";
             this.BrowseASCFILES.Size = new System.Drawing.Size(100, 28);
             this.BrowseASCFILES.TabIndex = 3;
@@ -76,7 +76,7 @@
             // Run
             // 
             this.Run.Location = new System.Drawing.Point(44, 549);
-            this.Run.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Run.Margin = new System.Windows.Forms.Padding(4);
             this.Run.Name = "Run";
             this.Run.Size = new System.Drawing.Size(100, 28);
             this.Run.TabIndex = 4;
@@ -87,7 +87,7 @@
             // Close
             // 
             this.Close.Location = new System.Drawing.Point(309, 549);
-            this.Close.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Close.Margin = new System.Windows.Forms.Padding(4);
             this.Close.Name = "Close";
             this.Close.Size = new System.Drawing.Size(100, 28);
             this.Close.TabIndex = 5;
@@ -100,7 +100,7 @@
             this.ASCFILES.FormattingEnabled = true;
             this.ASCFILES.ItemHeight = 16;
             this.ASCFILES.Location = new System.Drawing.Point(31, 15);
-            this.ASCFILES.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.ASCFILES.Margin = new System.Windows.Forms.Padding(4);
             this.ASCFILES.Name = "ASCFILES";
             this.ASCFILES.Size = new System.Drawing.Size(423, 324);
             this.ASCFILES.TabIndex = 6;
@@ -131,8 +131,8 @@
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(175, 405);
-            this.textBox1.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.textBox1.Location = new System.Drawing.Point(187, 405);
+            this.textBox1.Margin = new System.Windows.Forms.Padding(4);
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(52, 22);
             this.textBox1.TabIndex = 33;
@@ -141,7 +141,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(13, 405);
+            this.label4.Location = new System.Drawing.Point(13, 408);
             this.label4.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(160, 16);
@@ -184,7 +184,7 @@
             this.Controls.Add(this.BrowseASCFILES);
             this.Controls.Add(this.BrowsePolygon);
             this.Controls.Add(this.PolygonFIle);
-            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "Provide_Data";
             this.Text = "Provide_Data";
             this.ResumeLayout(false);

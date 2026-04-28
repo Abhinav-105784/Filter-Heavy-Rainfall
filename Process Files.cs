@@ -13,15 +13,8 @@ namespace Filtering_Rainfall_Asc
     {
         public Process_Files() { }
 
-        /// <summary>
-        /// Writing new files after warping and deleting uneccessary files
-        /// </summary>
-        /// <param name="TifFiles"></param>
-        /// <param name="Polygonfile"></param>
-        /// <param name="number"></param>
         public static void Process(List<string> TifFiles, string Polygonfile, int number, double duration)
         {
-            //Checking if inputs are correct
             if (TifFiles.Count == 0 || TifFiles == null)
             {
                 MessageBox.Show("Tif files list is empty or null");
@@ -40,7 +33,6 @@ namespace Filtering_Rainfall_Asc
                 Gdal.AllRegister();
                 Ogr.RegisterAll();
             }
-
             catch (Exception ex)
             {
                 MessageBox.Show($"Error in Gdal Package : {ex.Message}");
@@ -54,11 +46,8 @@ namespace Filtering_Rainfall_Asc
             List<double> allValues = new List<double>();
             List<string> tifList = new List<string>();
 
-
-
             int success = 0, skipped = 0, failed = 0;
 
-            // processing each tif file for warping and computing rainfall values
             foreach (var tifFile in TifFiles)
             {
                 if (!File.Exists(tifFile))
@@ -84,7 +73,6 @@ namespace Filtering_Rainfall_Asc
                     tifList.Add(outputPath);
                     success++;
                 }
-
                 catch (Exception ex)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
@@ -137,7 +125,6 @@ namespace Filtering_Rainfall_Asc
                 outputFolder = Directory.GetCurrentDirectory();
             }
 
-            // Writing csv for files that have required data
             string csvFileName = $"Top_{number}_Rainfall_Maximum_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
             string csvPath = Path.Combine(outputFolder, csvFileName);
 
@@ -146,7 +133,6 @@ namespace Filtering_Rainfall_Asc
                 using (var writer = new StreamWriter(csvPath))
                 {
                     writer.WriteLine("Filename,Average_Rainfall");
-
                     foreach (var kvp in outValues)
                     {
                         writer.WriteLine($"\"{kvp.Key}\",{kvp.Value:F4}");
@@ -165,19 +151,16 @@ namespace Filtering_Rainfall_Asc
                 Console.ResetColor();
             }
 
-            //Garbage collection
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
             System.Threading.Thread.Sleep(100);
 
-            //Deletion of unwanted files
             HashSet<string> filesToKeep = new HashSet<string>(outValues.Keys, StringComparer.OrdinalIgnoreCase);
 
             foreach (string file in tifList)
             {
                 string fileName = Path.GetFileName(file);
-
                 try
                 {
                     File.Delete(file);
@@ -187,11 +170,9 @@ namespace Filtering_Rainfall_Asc
                 {
                     Console.WriteLine($"Could not delete {fileName}: {ex.Message}");
                 }
-
             }
 
             Console.WriteLine($"Collecting the rainfall events.\n");
-            // Getting full rainfall event for max value file
             List<List<string>> allOutPutFiles = new List<List<string>>();
             foreach (string file in filesToKeep)
             {
@@ -201,7 +182,6 @@ namespace Filtering_Rainfall_Asc
 
             Console.WriteLine("Processing each rainfall event");
 
-            // warping all files
             foreach (List<string> list in allOutPutFiles)
             {
                 List<string> warpedFiles = new List<string>();
@@ -210,6 +190,7 @@ namespace Filtering_Rainfall_Asc
                 string baseDir = Path.GetDirectoryName(list[0]);
                 string eventFolder = Path.Combine(baseDir, centerFile);
                 Directory.CreateDirectory(eventFolder);
+
                 foreach (string file in list)
                 {
                     string outputPath = Path.Combine(eventFolder, Path.GetFileNameWithoutExtension(file) + "_clipped.tif");
@@ -225,33 +206,22 @@ namespace Filtering_Rainfall_Asc
                     catch (Exception ex)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"\nError while creating CSV: {ex.Message}\n");
+                        Console.WriteLine($"\nError while warping: {ex.Message}\n");
                         Console.ResetColor();
                     }
                 }
 
-                //CSV for the rainfall event
-                if (warpedFiles.Count > 0) 
+                if (warpedFiles.Count > 0)
                 {
                     string folder = Path.GetDirectoryName(warpedFiles[0]);
                     string csvFile = Path.Combine(folder, "Rainfall_Event.csv");
-
                     ReadingRaster.WriteRainfallMatrix(warpedFiles, csvFile);
-
                 }
             }
-
         }
 
-        /// <summary>
-        /// Simple Warping on the Raster file Individually using polygon shapefile
-        /// </summary>
-        /// <param name="inputTif"></param>
-        /// <param name="outputTif"></param>
-        /// <param name="polygonFile"></param>
         private static void WarpingCutline(string inputTif, string outputTif, string polygonFile)
         {
-
             inputTif = Path.GetFullPath(inputTif);
             outputTif = Path.GetFullPath(outputTif);
             polygonFile = Path.GetFullPath(polygonFile);
@@ -266,63 +236,45 @@ namespace Filtering_Rainfall_Asc
 
                 string[] warpOptions = new string[]
                 {
-                "-crop_to_cutline",
-                "-cutline",polygonFile,
-                "-of","GTiff",
-                "-co","TILED=YES",
-                "-multi"
-
+                    "-crop_to_cutline",
+                    "-cutline", polygonFile,
+                    "-of", "GTiff",
+                    "-co", "TILED=YES",
+                    "-multi"
                 };
 
                 GDALWarpAppOptions warpOpts = null;
-
                 try
                 {
                     warpOpts = new GDALWarpAppOptions(warpOptions);
                 }
                 catch (Exception ex)
                 {
-
                     Console.WriteLine($"Warp options Error for {inputTif} : {ex.Message}\n");
-
                     return;
                 }
 
                 Dataset clippedDS = null;
-
                 try
                 {
                     clippedDS = Gdal.Warp(outputTif, new[] { srcDs }, warpOpts, null, null);
                 }
-
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Warping Error for {inputTif} : {ex.Message}\n");
-
                     return;
                 }
 
-
                 if (clippedDS != null)
-                {
                     Console.WriteLine($"Clip successful -> {outputTif} \n");
-                }
-
                 else
-                {
                     Console.WriteLine($"Gdal.Warp returned null for : {inputTif}\n");
-                }
 
                 clippedDS.FlushCache();
                 clippedDS.Dispose();
             }
         }
 
-        /// <summary>
-        /// Computing the rainfall value from here for each warped raster
-        /// </summary>
-        /// <param name="clippedTif"></param>
-        /// <returns></returns>
         public static double ComputeMaximumRainfall(string clippedTif)
         {
             clippedTif = Path.GetFullPath(clippedTif);
@@ -332,7 +284,6 @@ namespace Filtering_Rainfall_Asc
 
             using (var ds = Gdal.Open(clippedTif, Access.GA_ReadOnly))
             {
-
                 if (ds == null)
                 {
                     Console.WriteLine($"Could not open : {clippedTif}\n");
@@ -363,14 +314,11 @@ namespace Filtering_Rainfall_Asc
                             max = value;
                             cellNo++;
                         }
-
                         count++;
                     }
 
                     if (count == 0)
-                    {
                         Console.WriteLine($"No valid cells found in : {Path.GetFileName(clippedTif)}");
-                    }
 
                     average = sum / count;
 
@@ -392,60 +340,59 @@ namespace Filtering_Rainfall_Asc
             return (int)(duration * 60) / 5;
         }
 
-        /// <summary>
-        /// Putting the maximum rain value event in center and getting rainfall total files to extract data for defined duration by user
-        /// </summary>
-        /// <param name="fileName"></param>
-        /// <param name="timeStep"></param>
-        /// <param name="files"></param>
-        /// <returns></returns>
         public static List<string> FilesList(string fileName, int timeStep, List<string> files)
         {
             List<string> rainEvent = new List<string>();
 
-            string[] parts = fileName.Split('_');
+            string baseName = fileName.Replace("_clipped.tif", "").Replace("_clipped", "");
+            string[] parts = baseName.Split('_');
 
-            string prefix = parts[0] + "_" + parts[1] + "_";
-            string datePart = parts[2];
-            string timePart = parts[3];
+            if (parts.Length < 6)
+            {
+                Console.WriteLine($"Cannot parse filename: {fileName}");
+                return rainEvent;
+            }
 
-            DateTime center = DateTime.ParseExact(
-                datePart + timePart,
-                "yyyyMMddHHmm",
-                null
-            );
+            string datePart = parts[4];
+            string timePart = parts[5].PadLeft(4, '0');
+            string prefix = string.Join("_", parts.Take(4)) + "_";
+
+            if (!DateTime.TryParseExact(datePart + timePart, "yyyyMMddHHmm", null,
+                System.Globalization.DateTimeStyles.None, out DateTime center))
+            {
+                Console.WriteLine($"Failed to parse date/time from: {fileName}");
+                return rainEvent;
+            }
+
+            var filesByBaseName = files.ToDictionary(
+                f => Path.GetFileNameWithoutExtension(f), f => f, StringComparer.OrdinalIgnoreCase);
 
             int left = timeStep / 2;
             int right = timeStep / 2;
-
             if (timeStep % 2 == 0)
-            {
                 right = left - 1;
-            }
 
-            //event previous to current timestep
             for (int i = left; i > 0; i--)
             {
                 DateTime t = center.AddMinutes(-5 * i);
-                string newFile = prefix + t.ToString("yyyyMMdd") + "_" + t.ToString("HHmm");
-
-                if (files.Contains(newFile))
-                    rainEvent.Add(newFile);
+                string newFile = prefix + t.ToString("yyyyMMdd") + "_" + t.ToString("HHmm") + "_asc";
+                if (filesByBaseName.TryGetValue(newFile, out string matchedFile))
+                    rainEvent.Add(matchedFile);
                 else
                     Console.WriteLine($"Skipped : {newFile} (File not found)");
             }
 
-            rainEvent.Add(fileName);
-
-            //event after the current timeStep
+            if (filesByBaseName.TryGetValue(baseName, out string centerFile))
+                rainEvent.Add(centerFile);
+            else
+                Console.WriteLine($"Center file not found: {baseName}");
 
             for (int i = 1; i <= right; i++)
             {
                 DateTime t = center.AddMinutes(5 * i);
-                string newFile = prefix + t.ToString("yyyyMMdd") + "_" + t.ToString("HHmm");
-
-                if (files.Contains(newFile))
-                    rainEvent.Add(newFile);
+                string newFile = prefix + t.ToString("yyyyMMdd") + "_" + t.ToString("HHmm") + "_asc";
+                if (filesByBaseName.TryGetValue(newFile, out string matchedFile))
+                    rainEvent.Add(matchedFile);
                 else
                     Console.WriteLine($"Skipped : {newFile} (File not found)");
             }

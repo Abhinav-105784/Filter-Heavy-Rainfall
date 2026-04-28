@@ -82,9 +82,10 @@ namespace Filtering_Rainfall_Asc
 
                 maxCells = Math.Max(maxCells, values.Count);
 
-                string time = Path.GetFileNameWithoutExtension(file).Split('_').Last();
-
-                times.Insert(0,time);
+                string baseName = Path.GetFileNameWithoutExtension(file).Replace("_clipped", "");
+                string[] parts = baseName.Split('_');
+                string time = parts[5];
+                times.Add(time);
             }
 
             using (var writer = new StreamWriter(csvFile))
